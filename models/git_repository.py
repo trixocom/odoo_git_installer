@@ -332,34 +332,21 @@ class GitCloneWizard(models.TransientModel):
     _description = 'Git Clone Wizard'
 
     repository_id = fields.Many2one('git.repository', string='Repository', required=True)
-    tag = fields.Selection(string='Select Tag', required=True)
+    tag = fields.Selection(selection='_get_tag_selection', string='Select Tag', required=True)
     module_name = fields.Char(string='Module Name (optional)', help='Leave empty to use repository name')
     auto_restart = fields.Boolean(string='Auto Restart Odoo', default=True)
     auto_update_list = fields.Boolean(string='Auto Update Module List', default=True)
 
-    @api.onchange('repository_id')
-    def _onchange_repository_id(self):
-        """Update tag selection when repository changes"""
-        if self.repository_id and self.repository_id.tags:
-            tags = self.repository_id.tags.split('\n')
-            self.tag = False
-            return {
-                'domain': {
-                    'tag': [('id', 'in', [(tag, tag) for tag in tags])]
-                }
-            }
-        return {'domain': {'tag': []}}
-
     @api.model
-    def fields_get(self, allfields=None, attributes=None):
-        """Dynamic tag selection options"""
-        res = super().fields_get(allfields, attributes)
-        if 'tag' in res and self.env.context.get('default_repository_id'):
-            repo = self.env['git.repository'].browse(self.env.context['default_repository_id'])
+    def _get_tag_selection(self):
+        """Get tags from repository for selection field"""
+        repository_id = self.env.context.get('default_repository_id')
+        if repository_id:
+            repo = self.env['git.repository'].browse(repository_id)
             if repo.tags:
                 tags = repo.tags.split('\n')
-                res['tag']['selection'] = [(tag, tag) for tag in tags]
-        return res
+                return [(tag, tag) for tag in tags if tag]
+        return [('', '')]
 
     def action_clone(self):
         """Execute clone operation"""
