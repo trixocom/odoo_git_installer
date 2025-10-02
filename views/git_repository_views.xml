@@ -48,8 +48,8 @@
                         </button>
                     </div>
                     
-                    <widget name="web_ribbon" title="Error" bg_color="bg-danger" invisible="state != 'error'"/>
-                    <widget name="web_ribbon" title="Validated" bg_color="bg-success" invisible="state != 'validated'"/>
+                    <widget name="web_ribbon" title="Error" bg_color="text-bg-danger" invisible="state != 'error'"/>
+                    <widget name="web_ribbon" title="Validated" bg_color="text-bg-success" invisible="state != 'validated'"/>
                     
                     <group>
                         <group>
@@ -163,7 +163,6 @@
             <p>
                 Configure GitHub or GitLab repositories to install Odoo modules directly from source.
             </p>
-        </p>
         </field>
     </record>
 
