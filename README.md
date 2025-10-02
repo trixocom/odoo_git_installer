@@ -1,4 +1,4 @@
-# Git Module Installer for Odoo
+# Git Module Installer for Odoo 18
 
 [![License: LGPL-3](https://img.shields.io/badge/license-LGPL--3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 
@@ -19,16 +19,15 @@
 ## Version Compatibility
 
 This module is compatible with:
-- ✅ Odoo 15.0 (Community & Enterprise)
-- ✅ Odoo 16.0 (Community & Enterprise)
-- ✅ Odoo 17.0 (Community & Enterprise)
-- ✅ Odoo 18.0 (Community & Enterprise)
+- ✅ **Odoo 18.0** (Community & Enterprise)
+
+> **Note**: For older Odoo versions (15.0-17.0), the module would need modifications as Odoo 18 changed `<tree>` views to `<list>` views. If you need compatibility with older versions, please check out a previous release or create a separate branch.
 
 ## Requirements
 
 ### System Requirements
 - Git must be installed on the server
-- Python 3.7 or higher
+- Python 3.10 or higher (Odoo 18 requirement)
 - Write permissions on the addons directory
 
 ### Python Dependencies
@@ -110,15 +109,16 @@ In the repository form, the **Installed Modules** tab shows all modules cloned f
 Here are some popular Odoo repositories you can use:
 
 ### OCA (Odoo Community Association)
-- **Web**: `https://github.com/OCA/web`
-- **Server Tools**: `https://github.com/OCA/server-tools`
-- **Reporting Engine**: `https://github.com/OCA/reporting-engine`
-- **Account Financial Tools**: `https://github.com/OCA/account-financial-tools`
+- **Web**: `https://github.com/OCA/web` (use 18.0 tags)
+- **Server Tools**: `https://github.com/OCA/server-tools` (use 18.0 tags)
+- **Reporting Engine**: `https://github.com/OCA/reporting-engine` (use 18.0 tags)
+- **Account Financial Tools**: `https://github.com/OCA/account-financial-tools` (use 18.0 tags)
 
 ### Other Sources
-Any public GitHub or GitLab repository with Odoo modules can be used as long as:
+Any public GitHub or GitLab repository with Odoo 18.0 modules can be used as long as:
 - The repository is publicly accessible
 - The repository has at least one tag/release
+- The modules are compatible with Odoo 18.0
 
 ## How It Works
 
@@ -137,9 +137,9 @@ Cloned modules are named with the tag suffix to avoid conflicts:
 
 ```
 /mnt/extra-addons/
-├── module_name_15.0.1.0.0/
-├── module_name_16.0.1.0.0/
-└── another_module_14.0.2.1.5/
+├── module_name_18.0.1.0.0/
+├── module_name_18.0.2.0.0/
+└── another_module_18.0.1.5/
 ```
 
 ## Security
@@ -177,7 +177,7 @@ sudo systemctl restart odoo
 Ensure:
 - The repository URL is correct
 - The repository is public
-- The repository has at least one tag/release
+- The repository has at least one tag/release compatible with Odoo 18.0
 
 ## Development
 
@@ -237,11 +237,12 @@ This module is licensed under the LGPL-3 License. See [LICENSE](LICENSE) file fo
 
 ## Changelog
 
-### Version 18.0.1.0.0 (2025-10-01)
-- Initial release
+### Version 18.0.1.0.0 (2025-10-02)
+- Initial release for Odoo 18.0
 - Support for GitHub and GitLab
 - Tag selection and cloning
 - Automatic module list update
 - Automatic Odoo restart
 - Permission management
 - Installation history tracking
+- Uses new Odoo 18 `<list>` view syntax (replaces `<tree>`)
