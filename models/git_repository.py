@@ -31,7 +31,7 @@ class GitRepository(models.Model):
         help='Path where modules will be cloned'
     )
     
-    tags = fields.Text(string='Available Tags', readonly=True, help='Cached list of available tags')
+    tags = fields.Text(string='Available Tags/Branches', readonly=True, help='Cached list of available tags and branches')
     last_sync = fields.Datetime(string='Last Sync', readonly=True)
     active = fields.Boolean(string='Active', default=True)
     state = fields.Selection([
@@ -107,59 +107,87 @@ class GitRepository(models.Model):
             _logger.exception("Error executing command")
             raise UserError(_(f'Error executing command: {str(e)}'))
 
-    def _get_git_tags(self):
-        """Fetch available tags from git repository"""
+    def _get_git_refs(self):
+        """Fetch available tags and branches from git repository"""
         self.ensure_one()
         
         try:
-            # Use ls-remote to get tags without cloning
-            command = f"git ls-remote --tags {self.url}"
-            output = self._run_command(command)
+            refs = []
             
-            if not output:
-                return []
+            # Get tags
+            try:
+                command = f"git ls-remote --tags {self.url}"
+                output = self._run_command(command)
+                
+                if output:
+                    for line in output.split('\n'):
+                        if line and 'refs/tags/' in line:
+                            tag = line.split('refs/tags/')[-1]
+                            # Remove ^{} suffix for annotated tags
+                            if not tag.endswith('^{}'):
+                                refs.append(('tag', tag))
+            except Exception as e:
+                _logger.warning(f"Could not fetch tags: {e}")
             
-            # Parse tags from output
-            tags = []
-            for line in output.split('\n'):
-                if line and 'refs/tags/' in line:
-                    tag = line.split('refs/tags/')[-1]
-                    # Remove ^{} suffix for annotated tags
-                    if tag.endswith('^{}'):
-                        continue
-                    tags.append(tag)
+            # Get branches (heads)
+            try:
+                command = f"git ls-remote --heads {self.url}"
+                output = self._run_command(command)
+                
+                if output:
+                    for line in output.split('\n'):
+                        if line and 'refs/heads/' in line:
+                            branch = line.split('refs/heads/')[-1]
+                            refs.append(('branch', branch))
+            except Exception as e:
+                _logger.warning(f"Could not fetch branches: {e}")
             
-            return sorted(tags, reverse=True)
+            # Sort: tags first, then branches, both alphabetically
+            refs.sort(key=lambda x: (x[0] != 'tag', x[1]), reverse=True)
+            
+            return refs
         except Exception as e:
-            _logger.exception("Error fetching git tags")
-            raise UserError(_(f'Error fetching tags: {str(e)}'))
+            _logger.exception("Error fetching git references")
+            raise UserError(_(f'Error fetching tags/branches: {str(e)}'))
 
     def action_validate_repository(self):
-        """Validate repository connection and fetch tags"""
+        """Validate repository connection and fetch tags/branches"""
         self.ensure_one()
         
         try:
             # Check if git is installed
             self._run_command("git --version")
             
-            # Fetch tags
-            tags = self._get_git_tags()
+            # Fetch tags and branches
+            refs = self._get_git_refs()
             
-            if not tags:
-                raise UserError(_('No tags found in repository. Please ensure the repository has at least one tag.'))
+            if not refs:
+                raise UserError(_('No tags or branches found in repository. Please ensure the repository has at least one tag or branch.'))
+            
+            # Format for storage: "type:name" (e.g., "tag:18.0.1.0.0" or "branch:18.0")
+            refs_formatted = [f"{ref_type}:{ref_name}" for ref_type, ref_name in refs]
+            
+            tags_count = sum(1 for rt, _ in refs if rt == 'tag')
+            branches_count = sum(1 for rt, _ in refs if rt == 'branch')
             
             self.write({
-                'tags': '\n'.join(tags),
+                'tags': '\n'.join(refs_formatted),
                 'last_sync': fields.Datetime.now(),
                 'state': 'validated',
                 'error_message': False,
             })
             
+            message = _('Repository validated successfully.')
+            if tags_count > 0:
+                message += _(' Found %s tags.') % tags_count
+            if branches_count > 0:
+                message += _(' Found %s branches.') % branches_count
+            
             return {
                 'type': 'ir.actions.client',
                 'tag': 'display_notification',
                 'params': {
-                    'message': _('Repository validated successfully. Found %s tags.') % len(tags),
+                    'message': message,
                     'type': 'success',
                     'sticky': False,
                 }
@@ -172,22 +200,22 @@ class GitRepository(models.Model):
             raise
 
     def action_refresh_tags(self):
-        """Refresh available tags from repository"""
+        """Refresh available tags/branches from repository"""
         return self.action_validate_repository()
 
     def action_clone_tag(self):
-        """Open wizard to select and clone a specific tag"""
+        """Open wizard to select and clone a specific tag/branch"""
         self.ensure_one()
         
         if self.state != 'validated':
             raise UserError(_('Please validate the repository first.'))
         
         if not self.tags:
-            raise UserError(_('No tags available. Please refresh tags first.'))
+            raise UserError(_('No tags/branches available. Please refresh first.'))
         
         # Open wizard
         return {
-            'name': _('Clone Repository Tag'),
+            'name': _('Clone Repository Version'),
             'type': 'ir.actions.act_window',
             'res_model': 'git.clone.wizard',
             'view_mode': 'form',
@@ -197,9 +225,22 @@ class GitRepository(models.Model):
             }
         }
 
-    def _clone_repository_tag(self, tag, module_name=None):
-        """Clone specific tag from repository"""
+    def _clone_repository_tag(self, ref_full, module_name=None):
+        """Clone specific tag/branch from repository
+        
+        Args:
+            ref_full: Full reference like "tag:18.0.1.0.0" or "branch:18.0"
+            module_name: Optional custom module name
+        """
         self.ensure_one()
+        
+        # Parse reference
+        if ':' in ref_full:
+            ref_type, ref_name = ref_full.split(':', 1)
+        else:
+            # Backward compatibility
+            ref_type = 'tag'
+            ref_name = ref_full
         
         # Ensure clone path exists
         if not os.path.exists(self.clone_path):
@@ -215,21 +256,21 @@ class GitRepository(models.Model):
             if module_name.endswith('.git'):
                 module_name = module_name[:-4]
         
-        # Add tag suffix to avoid conflicts
-        target_dir = os.path.join(self.clone_path, f"{module_name}_{tag}")
+        # Add ref suffix to avoid conflicts
+        target_dir = os.path.join(self.clone_path, f"{module_name}_{ref_name.replace('/', '_')}")
         
         # Check if already exists
         if os.path.exists(target_dir):
-            raise UserError(_(f'Module directory already exists: {target_dir}\nPlease remove it first or choose a different tag.'))
+            raise UserError(_(f'Module directory already exists: {target_dir}\nPlease remove it first or choose a different version.'))
         
         temp_dir = None
         try:
             # Create temporary directory for cloning
             temp_dir = f"/tmp/odoo_git_clone_{os.getpid()}"
             
-            # Clone with specific tag
-            _logger.info(f"Cloning repository {self.url} tag {tag} to {temp_dir}")
-            clone_cmd = f"git clone --depth 1 --branch {tag} {self.url} {temp_dir}"
+            # Clone with specific tag/branch
+            _logger.info(f"Cloning repository {self.url} {ref_type} {ref_name} to {temp_dir}")
+            clone_cmd = f"git clone --depth 1 --branch {ref_name} {self.url} {temp_dir}"
             self._run_command(clone_cmd)
             
             # Move to final destination
@@ -249,7 +290,7 @@ class GitRepository(models.Model):
             self.env['git.installed.module'].create({
                 'repository_id': self.id,
                 'name': module_name,
-                'tag': tag,
+                'tag': ref_name,
                 'path': target_dir,
                 'install_date': fields.Datetime.now(),
             })
@@ -332,20 +373,31 @@ class GitCloneWizard(models.TransientModel):
     _description = 'Git Clone Wizard'
 
     repository_id = fields.Many2one('git.repository', string='Repository', required=True)
-    tag = fields.Selection(selection='_get_tag_selection', string='Select Tag', required=True)
+    tag = fields.Selection(selection='_get_tag_selection', string='Select Version', required=True)
     module_name = fields.Char(string='Module Name (optional)', help='Leave empty to use repository name')
     auto_restart = fields.Boolean(string='Auto Restart Odoo', default=True)
     auto_update_list = fields.Boolean(string='Auto Update Module List', default=True)
 
     @api.model
     def _get_tag_selection(self):
-        """Get tags from repository for selection field"""
+        """Get tags/branches from repository for selection field"""
         repository_id = self.env.context.get('default_repository_id')
         if repository_id:
             repo = self.env['git.repository'].browse(repository_id)
             if repo.tags:
-                tags = repo.tags.split('\n')
-                return [(tag, tag) for tag in tags if tag]
+                refs = repo.tags.split('\n')
+                result = []
+                for ref in refs:
+                    if ref and ':' in ref:
+                        ref_type, ref_name = ref.split(':', 1)
+                        # Display format: "🏷️ tag_name" or "🌿 branch_name"
+                        icon = '🏷️' if ref_type == 'tag' else '🌿'
+                        display_name = f"{icon} {ref_name}"
+                        result.append((ref, display_name))
+                    elif ref:
+                        # Backward compatibility
+                        result.append((ref, ref))
+                return result
         return [('', '')]
 
     def action_clone(self):
