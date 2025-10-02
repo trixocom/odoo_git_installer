@@ -104,7 +104,8 @@
                                         <li><strong>Add Repository:</strong> Enter the public GitHub or GitLab repository URL (just the base URL, e.g., https://github.com/username/repo)</li>
                                         <li><strong>Validate:</strong> Click "Validate &amp; Fetch Versions" to verify the repository and load available versions</li>
                                         <li><strong>Clone Version:</strong> Click "Clone Version" to select and download a specific tag or branch</li>
-                                        <li><strong>Install Module:</strong> After cloning, the module will appear in the Apps menu for installation</li>
+                                        <li><strong>Restart Odoo:</strong> After cloning, you must manually restart Odoo</li>
+                                        <li><strong>Install Module:</strong> After restart, the module will appear in the Apps menu for installation</li>
                                     </ol>
                                     
                                     <h3>Requirements:</h3>
@@ -119,8 +120,8 @@
                                     <ul>
                                         <li>Both tags and branches are supported (useful for repos like ingadhoc that only use branches)</li>
                                         <li>Cloned modules are automatically assigned proper permissions for the Odoo user</li>
-                                        <li>The module list is automatically updated after cloning</li>
-                                        <li>Odoo will be restarted automatically if the option is enabled</li>
+                                        <li>The module list is automatically updated after cloning (if option enabled)</li>
+                                        <li>You must manually restart Odoo after cloning to see the new modules</li>
                                         <li>Module directories are named with the version suffix to avoid conflicts</li>
                                     </ul>
                                     
@@ -149,17 +150,21 @@
                     <field name="repository_id" invisible="1"/>
                     <field name="version_id"/>
                     <field name="module_name" placeholder="Leave empty to use repository name"/>
-                </group>
-                <group>
                     <field name="auto_update_list"/>
-                    <field name="auto_restart"/>
                 </group>
                 <div class="alert alert-info" role="alert" style="margin: 10px;">
                     <strong>ℹ️ Info:</strong> Tags are marked with 🏷️ and branches with 🌿
                 </div>
                 <div class="alert alert-warning" role="alert" style="margin: 10px;">
-                    <strong>⚠️ Warning:</strong> If "Auto Restart Odoo" is enabled, the server will restart automatically after cloning.
-                    This may disconnect your session temporarily.
+                    <strong>⚠️ Important:</strong> After cloning, you MUST manually restart Odoo to see the new module.
+                    <br/><br/>
+                    <strong>Restart commands:</strong>
+                    <ul>
+                        <li><strong>Docker:</strong> <code>docker restart container_name</code></li>
+                        <li><strong>Systemd:</strong> <code>sudo systemctl restart odoo</code></li>
+                        <li><strong>Manual:</strong> Restart your Odoo process</li>
+                    </ul>
+                    After restart, go to Apps → Update Apps List → Install your module
                 </div>
                 <footer>
                     <button name="action_clone" string="Clone" type="object" class="oe_highlight"/>
