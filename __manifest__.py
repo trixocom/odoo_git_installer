@@ -16,8 +16,8 @@ This module allows you to:
 
 Compatible with Odoo versions 15.0, 16.0, 17.0, and 18.0 (CE and EE)
     """,
-    'author': 'Your Company',
-    'website': 'https://www.yourcompany.com',
+    'author': 'Trixocom',
+    'website': 'https://www.trixocom.com',
     'license': 'LGPL-3',
     'depends': ['base'],
     'data': [
