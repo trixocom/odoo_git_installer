@@ -25,16 +25,16 @@
             <form string="Git Repository">
                 <header>
                     <button name="action_validate_repository" 
-                            string="Validate &amp; Fetch Tags" 
+                            string="Validate &amp; Fetch Versions" 
                             type="object" 
                             class="oe_highlight"
                             invisible="state == 'validated'"/>
                     <button name="action_refresh_tags" 
-                            string="Refresh Tags" 
+                            string="Refresh Versions" 
                             type="object"
                             invisible="state != 'validated'"/>
                     <button name="action_clone_tag" 
-                            string="Clone Tag" 
+                            string="Clone Version" 
                             type="object" 
                             class="oe_highlight"
                             invisible="state != 'validated'"/>
@@ -53,7 +53,7 @@
                     
                     <group>
                         <group>
-                            <field name="name" placeholder="e.g., My Custom Module"/>
+                            <field name="name" placeholder="e.g., ADHOC Argentina Sale"/>
                             <field name="url" placeholder="https://github.com/username/repository"/>
                             <field name="repository_type" readonly="1"/>
                         </group>
@@ -69,8 +69,11 @@
                     </group>
                     
                     <notebook>
-                        <page string="Available Tags" invisible="not tags">
+                        <page string="Available Versions" invisible="not tags">
                             <field name="tags" readonly="1" nolabel="1" widget="text"/>
+                            <div class="alert alert-info" style="margin-top: 10px;">
+                                <strong>ℹ️ Info:</strong> This list shows both tags (🏷️) and branches (🌿) available in the repository.
+                            </div>
                         </page>
                         
                         <page string="Installed Modules">
@@ -94,9 +97,9 @@
                                 <div style="margin: 10px;">
                                     <h3>How to use this module:</h3>
                                     <ol>
-                                        <li><strong>Add Repository:</strong> Enter the public GitHub or GitLab repository URL</li>
-                                        <li><strong>Validate:</strong> Click "Validate &amp; Fetch Tags" to verify the repository and load available versions</li>
-                                        <li><strong>Clone Tag:</strong> Click "Clone Tag" to select and download a specific version</li>
+                                        <li><strong>Add Repository:</strong> Enter the public GitHub or GitLab repository URL (just the base URL, e.g., https://github.com/username/repo)</li>
+                                        <li><strong>Validate:</strong> Click "Validate &amp; Fetch Versions" to verify the repository and load available versions</li>
+                                        <li><strong>Clone Version:</strong> Click "Clone Version" to select and download a specific tag or branch</li>
                                         <li><strong>Install Module:</strong> After cloning, the module will appear in the Apps menu for installation</li>
                                     </ol>
                                     
@@ -105,15 +108,23 @@
                                         <li>Git must be installed on the server</li>
                                         <li>The repository must be public or accessible without authentication</li>
                                         <li>The clone path must exist and be writable by the Odoo user</li>
-                                        <li>The repository must have at least one tag</li>
+                                        <li>The repository must have at least one tag or branch</li>
                                     </ul>
                                     
                                     <h3>Notes:</h3>
                                     <ul>
+                                        <li>Both tags and branches are supported (useful for repos like ingadhoc that only use branches)</li>
                                         <li>Cloned modules are automatically assigned proper permissions for the Odoo user</li>
                                         <li>The module list is automatically updated after cloning</li>
                                         <li>Odoo will be restarted automatically if the option is enabled</li>
-                                        <li>Module directories are named with the tag suffix to avoid conflicts</li>
+                                        <li>Module directories are named with the version suffix to avoid conflicts</li>
+                                    </ul>
+                                    
+                                    <h3>Examples:</h3>
+                                    <ul>
+                                        <li><strong>OCA Web:</strong> https://github.com/OCA/web (uses tags)</li>
+                                        <li><strong>ADHOC Argentina Sale:</strong> https://github.com/ingadhoc/argentina-sale (uses branches)</li>
+                                        <li><strong>ADHOC Odoo Argentina:</strong> https://github.com/ingadhoc/odoo-argentina (uses branches)</li>
                                     </ul>
                                 </div>
                             </group>
@@ -129,7 +140,7 @@
         <field name="name">git.clone.wizard.form</field>
         <field name="model">git.clone.wizard</field>
         <field name="arch" type="xml">
-            <form string="Clone Repository Tag">
+            <form string="Clone Repository Version">
                 <group>
                     <field name="repository_id" invisible="1"/>
                     <field name="tag" widget="selection"/>
@@ -139,8 +150,11 @@
                     <field name="auto_update_list"/>
                     <field name="auto_restart"/>
                 </group>
+                <div class="alert alert-info" role="alert" style="margin: 10px;">
+                    <strong>ℹ️ Info:</strong> Tags are marked with 🏷️ and branches with 🌿
+                </div>
                 <div class="alert alert-warning" role="alert" style="margin: 10px;">
-                    <strong>Warning:</strong> If "Auto Restart Odoo" is enabled, the server will restart automatically after cloning.
+                    <strong>⚠️ Warning:</strong> If "Auto Restart Odoo" is enabled, the server will restart automatically after cloning.
                     This may disconnect your session temporarily.
                 </div>
                 <footer>
@@ -162,6 +176,7 @@
             </p>
             <p>
                 Configure GitHub or GitLab repositories to install Odoo modules directly from source.
+                Supports both tags and branches.
             </p>
         </field>
     </record>
