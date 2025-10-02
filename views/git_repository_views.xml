@@ -143,7 +143,8 @@
             <form string="Clone Repository Version">
                 <group>
                     <field name="repository_id" invisible="1"/>
-                    <field name="tag" widget="selection"/>
+                    <field name="tag" invisible="1"/>
+                    <field name="tag_selection"/>
                     <field name="module_name" placeholder="Leave empty to use repository name"/>
                 </group>
                 <group>
