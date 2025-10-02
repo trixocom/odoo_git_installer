@@ -31,7 +31,9 @@ class GitRepository(models.Model):
         help='Path where modules will be cloned'
     )
     
-    tags = fields.Text(string='Available Tags/Branches', readonly=True, help='Cached list of available tags and branches')
+    version_ids = fields.One2many('git.repository.version', 'repository_id', string='Available Versions')
+    version_count = fields.Integer(string='Versions Count', compute='_compute_version_count')
+    tags = fields.Text(string='Available Tags/Branches (Legacy)', readonly=True, help='Cached list - for backward compatibility')
     last_sync = fields.Datetime(string='Last Sync', readonly=True)
     active = fields.Boolean(string='Active', default=True)
     state = fields.Selection([
@@ -42,6 +44,12 @@ class GitRepository(models.Model):
     
     error_message = fields.Text(string='Error Message', readonly=True)
     installed_modules = fields.One2many('git.installed.module', 'repository_id', string='Installed Modules')
+
+    @api.depends('version_ids')
+    def _compute_version_count(self):
+        """Compute number of available versions"""
+        for record in self:
+            record.version_count = len(record.version_ids)
 
     @api.depends('url')
     def _compute_repository_type(self):
@@ -164,7 +172,28 @@ class GitRepository(models.Model):
             if not refs:
                 raise UserError(_('No tags or branches found in repository. Please ensure the repository has at least one tag or branch.'))
             
-            # Format for storage: "type:name" (e.g., "tag:18.0.1.0.0" or "branch:18.0")
+            # Clear existing versions
+            self.version_ids.unlink()
+            
+            # Create version records
+            sequence = 0
+            for ref_type, ref_name in refs:
+                # Tags get lower sequence (show first)
+                if ref_type == 'tag':
+                    seq = sequence
+                    sequence += 1
+                else:
+                    seq = 1000 + sequence
+                    sequence += 1
+                
+                self.env['git.repository.version'].create({
+                    'name': ref_name,
+                    'repository_id': self.id,
+                    'version_type': ref_type,
+                    'sequence': seq,
+                })
+            
+            # Format for legacy storage
             refs_formatted = [f"{ref_type}:{ref_name}" for ref_type, ref_name in refs]
             
             tags_count = sum(1 for rt, _ in refs if rt == 'tag')
@@ -214,8 +243,8 @@ class GitRepository(models.Model):
         if self.state != 'validated':
             raise UserError(_('Please validate the repository first.'))
         
-        if not self.tags:
-            raise UserError(_('No tags/branches available. Please refresh first.'))
+        if not self.version_ids:
+            raise UserError(_('No versions available. Please refresh first.'))
         
         # Open wizard
         return {
@@ -377,43 +406,15 @@ class GitCloneWizard(models.TransientModel):
     _description = 'Git Clone Wizard'
 
     repository_id = fields.Many2one('git.repository', string='Repository', required=True)
-    tag = fields.Char(string='Select Version', required=True)
-    tag_selection = fields.Selection(
-        selection='_get_tag_selection',
-        string='Available Versions',
-        required=True
+    version_id = fields.Many2one(
+        'git.repository.version',
+        string='Select Version',
+        required=True,
+        domain="[('repository_id', '=', repository_id)]"
     )
     module_name = fields.Char(string='Module Name (optional)', help='Leave empty to use repository name')
     auto_restart = fields.Boolean(string='Auto Restart Odoo', default=True)
     auto_update_list = fields.Boolean(string='Auto Update Module List', default=True)
-
-    @api.model
-    def _get_tag_selection(self):
-        """Get tags/branches from repository for selection field"""
-        repository_id = self.env.context.get('default_repository_id')
-        if repository_id:
-            repo = self.env['git.repository'].browse(repository_id)
-            if repo.tags:
-                refs = repo.tags.split('\n')
-                result = []
-                for ref in refs:
-                    if ref and ':' in ref:
-                        ref_type, ref_name = ref.split(':', 1)
-                        # Display format: "🏷️ tag_name" or "🌿 branch_name"
-                        icon = '🏷️' if ref_type == 'tag' else '🌿'
-                        display_name = f"{icon} {ref_name}"
-                        result.append((ref, display_name))
-                    elif ref:
-                        # Backward compatibility
-                        result.append((ref, ref))
-                return result
-        return []
-
-    @api.onchange('tag_selection')
-    def _onchange_tag_selection(self):
-        """Update tag field when selection changes"""
-        if self.tag_selection:
-            self.tag = self.tag_selection
 
     @api.model
     def default_get(self, fields_list):
@@ -425,12 +426,10 @@ class GitCloneWizard(models.TransientModel):
         if repository_id:
             res['repository_id'] = repository_id
             
-            # Set first tag/branch as default
+            # Set first version as default
             repo = self.env['git.repository'].browse(repository_id)
-            if repo.tags:
-                first_ref = repo.tags.split('\n')[0]
-                res['tag'] = first_ref
-                res['tag_selection'] = first_ref
+            if repo.version_ids:
+                res['version_id'] = repo.version_ids[0].id
         
         return res
 
@@ -438,13 +437,13 @@ class GitCloneWizard(models.TransientModel):
         """Execute clone operation"""
         self.ensure_one()
         
-        # Use tag_selection if available, fallback to tag
-        ref_to_clone = self.tag_selection or self.tag
-        
-        if not ref_to_clone:
+        if not self.version_id:
             raise UserError(_('Please select a version to clone.'))
         
         try:
+            # Get full reference from version
+            ref_to_clone = self.version_id.full_reference
+            
             # Clone repository
             target_dir = self.repository_id._clone_repository_tag(ref_to_clone, self.module_name)
             

@@ -11,6 +11,7 @@
                 <field name="url"/>
                 <field name="repository_type"/>
                 <field name="clone_path"/>
+                <field name="version_count" string="Versions"/>
                 <field name="last_sync"/>
                 <field name="state"/>
             </list>
@@ -69,11 +70,14 @@
                     </group>
                     
                     <notebook>
-                        <page string="Available Versions" invisible="not tags">
-                            <field name="tags" readonly="1" nolabel="1" widget="text"/>
-                            <div class="alert alert-info" style="margin-top: 10px;">
-                                <strong>ℹ️ Info:</strong> This list shows both tags (🏷️) and branches (🌿) available in the repository.
-                            </div>
+                        <page string="Available Versions" invisible="not version_ids">
+                            <field name="version_ids" nolabel="1">
+                                <list>
+                                    <field name="display_name_full"/>
+                                    <field name="version_type"/>
+                                    <field name="name"/>
+                                </list>
+                            </field>
                         </page>
                         
                         <page string="Installed Modules">
@@ -143,8 +147,7 @@
             <form string="Clone Repository Version">
                 <group>
                     <field name="repository_id" invisible="1"/>
-                    <field name="tag" invisible="1"/>
-                    <field name="tag_selection"/>
+                    <field name="version_id"/>
                     <field name="module_name" placeholder="Leave empty to use repository name"/>
                 </group>
                 <group>
