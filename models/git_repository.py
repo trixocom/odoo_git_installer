@@ -377,7 +377,12 @@ class GitCloneWizard(models.TransientModel):
     _description = 'Git Clone Wizard'
 
     repository_id = fields.Many2one('git.repository', string='Repository', required=True)
-    tag = fields.Selection(selection='_get_tag_selection', string='Select Version', required=True)
+    tag = fields.Char(string='Select Version', required=True)
+    tag_selection = fields.Selection(
+        selection='_get_tag_selection',
+        string='Available Versions',
+        required=True
+    )
     module_name = fields.Char(string='Module Name (optional)', help='Leave empty to use repository name')
     auto_restart = fields.Boolean(string='Auto Restart Odoo', default=True)
     auto_update_list = fields.Boolean(string='Auto Update Module List', default=True)
@@ -402,15 +407,46 @@ class GitCloneWizard(models.TransientModel):
                         # Backward compatibility
                         result.append((ref, ref))
                 return result
-        return [('', '')]
+        return []
+
+    @api.onchange('tag_selection')
+    def _onchange_tag_selection(self):
+        """Update tag field when selection changes"""
+        if self.tag_selection:
+            self.tag = self.tag_selection
+
+    @api.model
+    def default_get(self, fields_list):
+        """Set default values"""
+        res = super().default_get(fields_list)
+        
+        # Get repository from context
+        repository_id = self.env.context.get('default_repository_id')
+        if repository_id:
+            res['repository_id'] = repository_id
+            
+            # Set first tag/branch as default
+            repo = self.env['git.repository'].browse(repository_id)
+            if repo.tags:
+                first_ref = repo.tags.split('\n')[0]
+                res['tag'] = first_ref
+                res['tag_selection'] = first_ref
+        
+        return res
 
     def action_clone(self):
         """Execute clone operation"""
         self.ensure_one()
         
+        # Use tag_selection if available, fallback to tag
+        ref_to_clone = self.tag_selection or self.tag
+        
+        if not ref_to_clone:
+            raise UserError(_('Please select a version to clone.'))
+        
         try:
             # Clone repository
-            target_dir = self.repository_id._clone_repository_tag(self.tag, self.module_name)
+            target_dir = self.repository_id._clone_repository_tag(ref_to_clone, self.module_name)
             
             # Update module list
             if self.auto_update_list:
