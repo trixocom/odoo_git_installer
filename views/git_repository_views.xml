@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    
+    <!-- Tree View -->
+    <record id="view_git_repository_tree" model="ir.ui.view">
+        <field name="name">git.repository.tree</field>
+        <field name="model">git.repository</field>
+        <field name="arch" type="xml">
+            <tree string="Git Repositories" decoration-success="state=='validated'" decoration-danger="state=='error'">
+                <field name="name"/>
+                <field name="url"/>
+                <field name="repository_type"/>
+                <field name="clone_path"/>
+                <field name="last_sync"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_git_repository_form" model="ir.ui.view">
+        <field name="name">git.repository.form</field>
+        <field name="model">git.repository</field>
+        <field name="arch" type="xml">
+            <form string="Git Repository">
+                <header>
+                    <button name="action_validate_repository" 
+                            string="Validate &amp; Fetch Tags" 
+                            type="object" 
+                            class="oe_highlight"
+                            invisible="state == 'validated'"/>
+                    <button name="action_refresh_tags" 
+                            string="Refresh Tags" 
+                            type="object"
+                            invisible="state != 'validated'"/>
+                    <button name="action_clone_tag" 
+                            string="Clone Tag" 
+                            type="object" 
+                            class="oe_highlight"
+                            invisible="state != 'validated'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,validated"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" type="object" name="action_clone_tag" icon="fa-download"
+                                invisible="state != 'validated'">
+                            <field string="Installed" name="installed_modules" widget="statinfo"/>
+                        </button>
+                    </div>
+                    
+                    <widget name="web_ribbon" title="Error" bg_color="bg-danger" invisible="state != 'error'"/>
+                    <widget name="web_ribbon" title="Validated" bg_color="bg-success" invisible="state != 'validated'"/>
+                    
+                    <group>
+                        <group>
+                            <field name="name" placeholder="e.g., My Custom Module"/>
+                            <field name="url" placeholder="https://github.com/username/repository"/>
+                            <field name="repository_type" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="clone_path" placeholder="/mnt/extra-addons"/>
+                            <field name="last_sync" readonly="1"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    
+                    <group string="Error Details" invisible="not error_message">
+                        <field name="error_message" nolabel="1" readonly="1"/>
+                    </group>
+                    
+                    <notebook>
+                        <page string="Available Tags" invisible="not tags">
+                            <field name="tags" readonly="1" nolabel="1" widget="text"/>
+                        </page>
+                        
+                        <page string="Installed Modules">
+                            <field name="installed_modules" nolabel="1">
+                                <tree>
+                                    <field name="name"/>
+                                    <field name="tag"/>
+                                    <field name="path"/>
+                                    <field name="install_date"/>
+                                    <button name="action_remove_module" 
+                                            type="object" 
+                                            string="Remove" 
+                                            icon="fa-trash"
+                                            confirm="Are you sure you want to remove this module? This will delete the directory."/>
+                                </tree>
+                            </field>
+                        </page>
+                        
+                        <page string="Help">
+                            <group>
+                                <div style="margin: 10px;">
+                                    <h3>How to use this module:</h3>
+                                    <ol>
+                                        <li><strong>Add Repository:</strong> Enter the public GitHub or GitLab repository URL</li>
+                                        <li><strong>Validate:</strong> Click "Validate &amp; Fetch Tags" to verify the repository and load available versions</li>
+                                        <li><strong>Clone Tag:</strong> Click "Clone Tag" to select and download a specific version</li>
+                                        <li><strong>Install Module:</strong> After cloning, the module will appear in the Apps menu for installation</li>
+                                    </ol>
+                                    
+                                    <h3>Requirements:</h3>
+                                    <ul>
+                                        <li>Git must be installed on the server</li>
+                                        <li>The repository must be public or accessible without authentication</li>
+                                        <li>The clone path must exist and be writable by the Odoo user</li>
+                                        <li>The repository must have at least one tag</li>
+                                    </ul>
+                                    
+                                    <h3>Notes:</h3>
+                                    <ul>
+                                        <li>Cloned modules are automatically assigned proper permissions for the Odoo user</li>
+                                        <li>The module list is automatically updated after cloning</li>
+                                        <li>Odoo will be restarted automatically if the option is enabled</li>
+                                        <li>Module directories are named with the tag suffix to avoid conflicts</li>
+                                    </ul>
+                                </div>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Clone Wizard View -->
+    <record id="view_git_clone_wizard_form" model="ir.ui.view">
+        <field name="name">git.clone.wizard.form</field>
+        <field name="model">git.clone.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Clone Repository Tag">
+                <group>
+                    <field name="repository_id" invisible="1"/>
+                    <field name="tag" widget="selection"/>
+                    <field name="module_name" placeholder="Leave empty to use repository name"/>
+                </group>
+                <group>
+                    <field name="auto_update_list"/>
+                    <field name="auto_restart"/>
+                </group>
+                <div class="alert alert-warning" role="alert" style="margin: 10px;">
+                    <strong>Warning:</strong> If "Auto Restart Odoo" is enabled, the server will restart automatically after cloning.
+                    This may disconnect your session temporarily.
+                </div>
+                <footer>
+                    <button name="action_clone" string="Clone" type="object" class="oe_highlight"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_git_repository" model="ir.actions.act_window">
+        <field name="name">Git Repositories</field>
+        <field name="res_model">git.repository</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Add your first Git repository
+            </p>
+            <p>
+                Configure GitHub or GitLab repositories to install Odoo modules directly from source.
+            </p>
+        </p>
+        </field>
+    </record>
+
+</odoo>
