@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_git_repository_admin,access.git.repository.admin,model_git_repository,base.group_system,1,1,1,1
+access_git_repository_user,access.git.repository.user,model_git_repository,base.group_user,1,0,0,0
+access_git_installed_module_admin,access.git.installed.module.admin,model_git_installed_module,base.group_system,1,1,1,1
+access_git_installed_module_user,access.git.installed.module.user,model_git_installed_module,base.group_user,1,0,0,0
+access_git_clone_wizard_admin,access.git.clone.wizard.admin,model_git_clone_wizard,base.group_system,1,1,1,1
