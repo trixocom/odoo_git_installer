@@ -9,7 +9,7 @@
 ### Key Features
 
 - 🔗 **Multiple Repository Sources**: Define unlimited GitHub and GitLab repository sources
-- 🏷️ **Tag/Version Selection**: Browse and select specific tags/versions to install
+- 🏷️ **Tag & Branch Support**: Browse and select from both tags and branches (perfect for repos like ingadhoc)
 - 📦 **Automatic Installation**: Clone modules directly to your addons path
 - 🔄 **Auto-restart & Update**: Automatically restart Odoo and update the module list
 - 👤 **Permission Management**: Automatically sets proper ownership for the Odoo user
@@ -21,7 +21,7 @@
 This module is compatible with:
 - ✅ **Odoo 18.0** (Community & Enterprise)
 
-> **Note**: For older Odoo versions (15.0-17.0), the module would need modifications as Odoo 18 changed `<tree>` views to `<list>` views. If you need compatibility with older versions, please check out a previous release or create a separate branch.
+> **Note**: For older Odoo versions (15.0-17.0), the module would need modifications as Odoo 18 changed `<tree>` views to `<list>` views. If you need compatibility with older versions, please create a separate branch.
 
 ## Requirements
 
@@ -81,16 +81,21 @@ sudo chmod -R 755 /mnt/extra-addons
 1. Go to **Git Installer > Repositories**
 2. Click **Create**
 3. Fill in the details:
-   - **Repository Name**: A friendly name (e.g., "OCA Web")
-   - **Repository URL**: The full public repository URL (e.g., `https://github.com/OCA/web`)
+   - **Repository Name**: A friendly name (e.g., "ADHOC Argentina Sale")
+   - **Repository URL**: The full public repository URL (e.g., `https://github.com/ingadhoc/argentina-sale`)
+     - ⚠️ **Important**: Use only the base repository URL, NOT the tree/branch URL
+     - ✅ Correct: `https://github.com/ingadhoc/argentina-sale`
+     - ❌ Wrong: `https://github.com/ingadhoc/argentina-sale/tree/18.0/l10n_ar_sale`
    - **Clone Path**: Where to install modules (default: `/mnt/extra-addons`)
-4. Click **Validate & Fetch Tags**
+4. Click **Validate & Fetch Versions**
 
 ### Installing a Module
 
 1. Open a validated repository
-2. Click **Clone Tag**
-3. Select the desired tag/version
+2. Click **Clone Version**
+3. Select the desired version:
+   - 🏷️ **Tags**: Numbered releases (e.g., 18.0.1.0.0)
+   - 🌿 **Branches**: Development branches (e.g., 18.0, main)
 4. Optionally adjust:
    - **Module Name**: Custom name for the installation directory
    - **Auto Update Module List**: Update Odoo's module list after cloning
@@ -108,38 +113,43 @@ In the repository form, the **Installed Modules** tab shows all modules cloned f
 
 Here are some popular Odoo repositories you can use:
 
-### OCA (Odoo Community Association)
-- **Web**: `https://github.com/OCA/web` (use 18.0 tags)
-- **Server Tools**: `https://github.com/OCA/server-tools` (use 18.0 tags)
-- **Reporting Engine**: `https://github.com/OCA/reporting-engine` (use 18.0 tags)
-- **Account Financial Tools**: `https://github.com/OCA/account-financial-tools` (use 18.0 tags)
+### OCA (Odoo Community Association) - Uses Tags
+- **Web**: `https://github.com/OCA/web`
+- **Server Tools**: `https://github.com/OCA/server-tools`
+- **Reporting Engine**: `https://github.com/OCA/reporting-engine`
+- **Account Financial Tools**: `https://github.com/OCA/account-financial-tools`
 
-### Other Sources
-Any public GitHub or GitLab repository with Odoo 18.0 modules can be used as long as:
-- The repository is publicly accessible
-- The repository has at least one tag/release
-- The modules are compatible with Odoo 18.0
+### ADHOC (Ingeniería ADHOC) - Uses Branches
+- **Argentina Sale**: `https://github.com/ingadhoc/argentina-sale`
+- **Odoo Argentina**: `https://github.com/ingadhoc/odoo-argentina`
+- **Odoo Argentina CE**: `https://github.com/ingadhoc/odoo-argentina-ce`
+- **Sale**: `https://github.com/ingadhoc/sale`
+
+### Important Notes
+- OCA repositories typically use **tags** (e.g., 18.0.1.0.0)
+- ADHOC repositories typically use **branches** (e.g., 18.0, 16.0)
+- This module supports **both** approaches seamlessly
 
 ## How It Works
 
 ### Clone Process
 
-1. **Validation**: The module validates the repository URL and fetches available tags using `git ls-remote`
-2. **Tag Selection**: User selects a specific tag through a wizard
-3. **Cloning**: The module clones only the selected tag using `git clone --depth 1 --branch <tag>`
+1. **Validation**: The module validates the repository URL and fetches available tags and branches using `git ls-remote`
+2. **Version Selection**: User selects a specific tag or branch through a wizard
+3. **Cloning**: The module clones only the selected version using `git clone --depth 1 --branch <version>`
 4. **Permissions**: Ownership is set to the Odoo user using `chown`
 5. **Module List Update**: Odoo's module list is refreshed using `update_list()`
 6. **Restart** (optional): Odoo is restarted by sending SIGHUP signal
 
 ### Directory Structure
 
-Cloned modules are named with the tag suffix to avoid conflicts:
+Cloned modules are named with the version suffix to avoid conflicts:
 
 ```
 /mnt/extra-addons/
-├── module_name_18.0.1.0.0/
-├── module_name_18.0.2.0.0/
-└── another_module_18.0.1.5/
+├── argentina-sale_18.0/
+├── web_18.0.1.0.0/
+└── server-tools_18.0.2.1.0/
 ```
 
 ## Security
@@ -173,11 +183,19 @@ This is normal in some deployment scenarios. Simply restart Odoo manually:
 sudo systemctl restart odoo
 ```
 
-### Tags not showing
+### "No tags or branches found"
 Ensure:
-- The repository URL is correct
+- The repository URL is correct (base URL only, not tree/branch URL)
 - The repository is public
-- The repository has at least one tag/release compatible with Odoo 18.0
+- The repository has at least one tag or branch
+- Git can access the repository from your server
+
+### Using wrong URL format
+❌ **Wrong**: `https://github.com/ingadhoc/argentina-sale/tree/18.0/l10n_ar_sale`
+
+✅ **Correct**: `https://github.com/ingadhoc/argentina-sale`
+
+The module will automatically detect all available branches and tags.
 
 ## Development
 
@@ -206,7 +224,7 @@ odoo_git_installer/
 
 - **git.repository**: Main model for repository sources
 - **git.installed.module**: Tracks installed modules
-- **git.clone.wizard**: Wizard for tag selection and cloning
+- **git.clone.wizard**: Wizard for version selection and cloning
 
 ## Contributing
 
@@ -236,6 +254,12 @@ This module is licensed under the LGPL-3 License. See [LICENSE](LICENSE) file fo
 - Hector Quiroz <hectorquiroz@trixocom.com>
 
 ## Changelog
+
+### Version 18.0.1.1.0 (2025-10-02)
+- **NEW**: Added support for branches in addition to tags
+- Allows cloning from repositories that only use branches (e.g., ingadhoc repositories)
+- Visual indicators in UI: 🏷️ for tags, 🌿 for branches
+- Improved error messages and help text
 
 ### Version 18.0.1.0.0 (2025-10-02)
 - Initial release for Odoo 18.0
