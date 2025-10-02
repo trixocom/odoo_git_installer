@@ -177,6 +177,9 @@ class GitRepository(models.Model):
                 'error_message': False,
             })
             
+            # Commit changes to database
+            self.env.cr.commit()
+            
             message = _('Repository validated successfully.')
             if tags_count > 0:
                 message += _(' Found %s tags.') % tags_count
@@ -197,6 +200,7 @@ class GitRepository(models.Model):
                 'state': 'error',
                 'error_message': str(e),
             })
+            self.env.cr.commit()
             raise
 
     def action_refresh_tags(self):
