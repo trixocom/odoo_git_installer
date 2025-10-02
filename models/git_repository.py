@@ -206,9 +206,6 @@ class GitRepository(models.Model):
                 'error_message': False,
             })
             
-            # Commit changes to database
-            self.env.cr.commit()
-            
             message = _('Repository validated successfully.')
             if tags_count > 0:
                 message += _(' Found %s tags.') % tags_count
@@ -229,7 +226,6 @@ class GitRepository(models.Model):
                 'state': 'error',
                 'error_message': str(e),
             })
-            self.env.cr.commit()
             raise
 
     def action_refresh_tags(self):
@@ -337,26 +333,38 @@ class GitRepository(models.Model):
             if os.path.exists(target_dir):
                 shutil.rmtree(target_dir, ignore_errors=True)
             raise
-        
-    def _restart_odoo(self):
-        """Restart Odoo server"""
-        _logger.info("Restarting Odoo server...")
-        try:
-            # Send SIGHUP to reload Odoo
-            os.kill(os.getppid(), 1)
-        except Exception as e:
-            _logger.warning(f"Could not restart Odoo automatically: {e}")
-            raise UserError(_('Module cloned successfully, but automatic restart failed.\nPlease restart Odoo manually.'))
 
     def _update_module_list(self):
-        """Update Odoo module list"""
+        """Update Odoo module list - safe method that doesn't commit"""
         _logger.info("Updating module list...")
         try:
             self.env['ir.module.module'].update_list()
-            self.env.cr.commit()
+            # DO NOT commit here - let Odoo handle the transaction
         except Exception as e:
             _logger.exception("Error updating module list")
             raise UserError(_(f'Error updating module list: {str(e)}'))
+
+    def action_update_module_list_and_restart(self):
+        """Scheduled action to safely update module list and restart Odoo
+        
+        This should be called via a cron or manual action AFTER the clone is complete
+        """
+        try:
+            # Update module list
+            self.env['ir.module.module'].update_list()
+            self.env.cr.commit()
+            
+            # Now it's safe to restart
+            _logger.info("Restarting Odoo server via scheduled action...")
+            try:
+                # Use SIGHUP for graceful reload
+                import signal
+                os.kill(os.getppid(), signal.SIGHUP)
+            except Exception as e:
+                _logger.warning(f"Could not restart Odoo: {e}")
+                
+        except Exception as e:
+            _logger.exception("Error in scheduled restart")
 
 
 class GitInstalledModule(models.Model):
@@ -413,8 +421,11 @@ class GitCloneWizard(models.TransientModel):
         domain="[('repository_id', '=', repository_id)]"
     )
     module_name = fields.Char(string='Module Name (optional)', help='Leave empty to use repository name')
-    auto_restart = fields.Boolean(string='Auto Restart Odoo', default=True)
-    auto_update_list = fields.Boolean(string='Auto Update Module List', default=True)
+    auto_update_list = fields.Boolean(
+        string='Auto Update Module List', 
+        default=True,
+        help='Update the list of available modules after cloning'
+    )
 
     @api.model
     def default_get(self, fields_list):
@@ -444,24 +455,31 @@ class GitCloneWizard(models.TransientModel):
             # Get full reference from version
             ref_to_clone = self.version_id.full_reference
             
-            # Clone repository
+            # Clone repository (this is safe - no commits involved)
             target_dir = self.repository_id._clone_repository_tag(ref_to_clone, self.module_name)
             
-            # Update module list
+            # Update module list if requested (safe - no manual commit)
             if self.auto_update_list:
                 self.repository_id._update_module_list()
             
-            # Restart Odoo
-            if self.auto_restart:
-                self.repository_id._restart_odoo()
-                message = _('Module cloned successfully to: %s\nOdoo is restarting...') % target_dir
-            else:
-                message = _('Module cloned successfully to: %s\nPlease restart Odoo manually and update module list.') % target_dir
+            # Build informative message
+            message = _('✅ Module cloned successfully to: %s\n\n') % target_dir
+            
+            if self.auto_update_list:
+                message += _('📋 Module list has been updated.\n\n')
+            
+            message += _('⚠️ IMPORTANT: You must restart Odoo to see the new module.\n\n')
+            message += _('To restart Odoo:\n')
+            message += _('• Docker: docker restart <container_name>\n')
+            message += _('• Systemd: sudo systemctl restart odoo\n')
+            message += _('• Manual: Restart your Odoo process\n\n')
+            message += _('After restart, go to Apps → Update Apps List → Install your module')
             
             return {
                 'type': 'ir.actions.client',
                 'tag': 'display_notification',
                 'params': {
+                    'title': _('Clone Completed Successfully'),
                     'message': message,
                     'type': 'success',
                     'sticky': True,
