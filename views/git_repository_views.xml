@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     
-    <!-- Tree View -->
+    <!-- List View -->
     <record id="view_git_repository_tree" model="ir.ui.view">
         <field name="name">git.repository.tree</field>
         <field name="model">git.repository</field>
         <field name="arch" type="xml">
-            <tree string="Git Repositories" decoration-success="state=='validated'" decoration-danger="state=='error'">
+            <list string="Git Repositories" decoration-success="state=='validated'" decoration-danger="state=='error'">
                 <field name="name"/>
                 <field name="url"/>
                 <field name="repository_type"/>
                 <field name="clone_path"/>
                 <field name="last_sync"/>
                 <field name="state"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -75,7 +75,7 @@
                         
                         <page string="Installed Modules">
                             <field name="installed_modules" nolabel="1">
-                                <tree>
+                                <list>
                                     <field name="name"/>
                                     <field name="tag"/>
                                     <field name="path"/>
@@ -85,7 +85,7 @@
                                             string="Remove" 
                                             icon="fa-trash"
                                             confirm="Are you sure you want to remove this module? This will delete the directory."/>
-                                </tree>
+                                </list>
                             </field>
                         </page>
                         
@@ -155,7 +155,7 @@
     <record id="action_git_repository" model="ir.actions.act_window">
         <field name="name">Git Repositories</field>
         <field name="res_model">git.repository</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Add your first Git repository
