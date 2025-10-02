@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    
+    <!-- Main Menu -->
+    <menuitem id="menu_git_installer_root"
+              name="Git Installer"
+              sequence="100"
+              web_icon="git_installer,static/description/icon.png"
+              groups="base.group_system"/>
+    
+    <menuitem id="menu_git_repositories"
+              name="Repositories"
+              parent="menu_git_installer_root"
+              action="action_git_repository"
+              sequence="10"/>
+
+</odoo>
